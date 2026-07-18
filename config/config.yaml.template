@@ -1,0 +1,90 @@
+# config.yaml - konfiguracja techniczna Hermes Agent.
+# Skopiuj do ~/.hermes/config/config.yaml i uzupelnij wszystkie pola
+# oznaczone "# <-- SET YOUR TOKEN HERE" lub "# <-- UZUPELNIJ".
+# Zadnych sekretow nie wpisuj tutaj wprost - odwoluj sie do zmiennych
+# srodowiskowych zdefiniowanych w ~/.hermes/.env (plik NIGDY nie
+# trafiajacy do repozytorium, patrz .gitignore).
+
+# Podstawowa tozsamosc agenta.
+agent:
+  name: hermes                          # <-- UZUPELNIJ (nazwa wlasna instancji agenta)
+  timezone: Europe/Warsaw               # <-- UZUPELNIJ (strefa czasowa uzytkownika)
+  soul_file: ~/.hermes/config/SOUL.md   # plik zasad dzialania (patrz SOUL.md.template)
+
+# Domyslny model jezykowy i jego provider.
+# Routing modeli wg zlozonosci zadania opisany w skills/model-routing.
+model:
+  provider: openrouter
+  default: deepseek/deepseek-v4-flash   # tani model do zadan biezacych (digesty, rozmowa)
+  api_key: ${OPENROUTER_API_KEY}        # <-- SET YOUR TOKEN HERE (zmienna w ~/.hermes/.env)
+  base_url: https://openrouter.ai/api/v1
+
+# Model uzywany do delegacji zadan bardziej zlozonych (subagentow).
+# Uwaga: w niektorych wersjach Hermesa to pole jest ignorowane (patrz
+# skills/model-routing - znany blad #31155) - w razie watpliwosci podawaj
+# model jawnie w wywolaniu delegate_task/cronjob zamiast polegac na tej wartosci.
+delegation:
+  model: deepseek/deepseek-v4-flash     # <-- UZUPELNIJ (model domyslny dla subagentow)
+  base_url: https://openrouter.ai/api/v1
+
+# Kanaly komunikacji z uzytkownikiem.
+channels:
+  telegram:
+    enabled: true
+    bot_token: ${TELEGRAM_BOT_TOKEN}    # <-- SET YOUR TOKEN HERE (zmienna w ~/.hermes/.env)
+    chat_id: ${TELEGRAM_CHAT_ID}        # <-- SET YOUR TOKEN HERE (zmienna w ~/.hermes/.env)
+
+# Sciezka do Obsidian vault, w ktorym Hermes zapisuje wiedze
+# (patrz skills/knowledge). Odczyt/zapis bezposrednio na dysku -
+# ta sama maszyna, na ktorej dziala Hermes i zsynchronizowany vault.
+vault:
+  path: ${OBSIDIAN_VAULT_PATH}          # <-- UZUPELNIJ (bezwzgledna sciezka do vaulta)
+
+# Katalogi robocze Hermesa (stan, skille, skrypty).
+paths:
+  state_dir: ~/.hermes/state
+  skills_dir: ~/.hermes/skills
+  scripts_dir: ~/.hermes/scripts
+
+# Integracje uzywane przez skille/skrypty w tym szablonie.
+# Uzupelnij tylko te, z ktorych faktycznie korzystasz.
+integrations:
+  github:
+    enabled: false                      # <-- UZUPELNIJ (true, jesli uzywasz pipeline'u Sokrates)
+    token: ${GITHUB_TOKEN}              # <-- SET YOUR TOKEN HERE (uprawnienia: repo, issues)
+    watched_repos:                      # <-- UZUPELNIJ (lista "wlasciciel/repo")
+      - owner/repo-1
+      - owner/repo-2
+
+  freshrss:
+    enabled: false                      # <-- UZUPELNIJ (true, jesli uzywasz pipeline'u RSS)
+    host: freshrss.local                # <-- UZUPELNIJ (adres lokalnej instancji FreshRSS)
+    port: 8081
+    api_user: ${FRESHRSS_API_USER}      # <-- SET YOUR TOKEN HERE (w ~/.hermes/.env)
+    api_password: ${FRESHRSS_API_PASSWORD}  # <-- SET YOUR TOKEN HERE (w ~/.hermes/.env)
+
+  paperless:
+    enabled: false                      # <-- UZUPELNIJ (true, jesli uzywasz archiwum Paperless-ngx)
+    url: http://127.0.0.1:8000
+    # Token Paperless jest odczytywany bezposrednio z lokalnej bazy danych
+    # przez skrypt prawo-watchdog.py - nie wpisuj go tutaj.
+
+  toggl:
+    enabled: false                      # <-- UZUPELNIJ (true, jesli uzywasz sledzenia czasu pracy)
+    api_token: ${TOGGL_API_TOKEN}       # <-- SET YOUR TOKEN HERE (w ~/.hermes/.env)
+    workspace_id: ${TOGGL_WORKSPACE_ID} # <-- UZUPELNIJ (ID przestrzeni roboczej Toggl)
+
+  claude_code:
+    enabled: false                      # <-- UZUPELNIJ (true, jesli delegujesz kodowanie do Claude Code)
+    binary_path: claude                 # pelna sciezka do binarki, patrz skills/claude-code
+    # Klucz Anthropic (lub alternatywnego providera) ustawiany jest osobno
+    # w srodowisku procesu Claude Code, nie w tym pliku - patrz
+    # skills/coding-cli-provider-config.
+
+# Domyslne zachowanie cronjobow zdefiniowanych w cron/jobs-example.json.
+cron:
+  enabled: true
+  # Jesli zadanie pomija model/provider, dziedziczy wartosc z model.default
+  # w momencie utworzenia (snapshot) - zmiana globalnego modelu pozniej NIE
+  # przelacza juz istniejacych zadan (fail-closed, patrz skills/model-routing).
+  fail_closed_on_model_change: true

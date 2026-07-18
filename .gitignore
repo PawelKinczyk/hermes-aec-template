@@ -1,0 +1,48 @@
+# Sekrety i zmienne srodowiskowe
+.env
+.env.*
+*.env
+!*.env.example
+
+# Tokeny / poswiadczenia
+*.tok
+*.token
+*.key
+*.pem
+credentials.json
+
+# Pliki stanu Hermes/Sokrates (dane runtime, nie kod)
+.sokrates-*
+*-seen.json
+*-queue.json
+*-pdf-index.json
+state/
+
+# Uzupelnione pliki konfiguracyjne (commituj tylko wersje .template)
+config/SOUL.md
+config/config.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Logi
+*.log
+
+# System / edytory
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Katalogi tymczasowe
+tmp/
+*.tmp

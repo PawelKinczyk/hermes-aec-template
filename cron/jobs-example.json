@@ -1,0 +1,98 @@
+{
+  "_comment": "Przykladowa konfiguracja cronjobow Hermes Agent dla trzech pipeline'ow monitorujacych z tego szablonu (Sokrates, RSS, Prawo). Wszystkie wartosci to placeholdery - podmien je na wlasne przed importem. Wzorzec watchdog -> digest -> send opisany jest w docs/architektura.md.",
+
+  "jobs": [
+    {
+      "_comment": "--- PIPELINE 1: SOKRATES (watchdog GitHub) ---",
+
+      "name": "sokrates-watchdog",
+      "_comment_job": "Sprawdza nowe wzmianki @sokrates w issue/komentarzach na sledzonych repozytoriach. no_agent: skrypt sam filtruje i formatuje powiadomienie - LLM nie jest potrzebny.",
+      "schedule": "0 * * * *",
+      "no_agent": true,
+      "command": "~/.hermes/scripts/watchdog/sokrates-watchdog.sh",
+      "env": {
+        "WATCHED_REPO_1": "owner/repo-1",
+        "WATCHED_REPO_2": "owner/repo-2",
+        "WATCHED_REPO_3": "owner/repo-3"
+      },
+      "on_output": "send_telegram",
+      "timeout_seconds": 120
+    },
+    {
+      "name": "sokrates-executor",
+      "_comment_job": "Odczytuje kolejke zadan zapisana przez watchdog i przekazuje ja agentowi do samodzielnej realizacji. To JEDYNY krok w tym pipeline z udzialem LLM (no_agent: false) - bo realizacja zadania z issue wymaga wnioskowania, nie tylko filtrowania. Cisza nocna 23:00-08:00 zaszyta w skrypcie.",
+      "schedule": "5 * * * *",
+      "no_agent": false,
+      "model": "deepseek/deepseek-v4-pro",
+      "provider": "openrouter",
+      "command": "~/.hermes/scripts/watchdog/sokrates-executor.sh",
+      "agent_instructions": "Wykonaj kazde zadanie z listy JSON zwroconej przez skrypt. Po zakonczeniu kazdego zadania oznacz je jako zrobione uruchamiajac ~/.hermes/scripts/watchdog/sokrates-done.sh <comment_id_lub_issue> <repo>.",
+      "timeout_seconds": 1800
+    },
+
+    {
+      "_comment": "--- PIPELINE 2: RSS (watchdog FreshRSS) ---",
+
+      "name": "rss-watchdog",
+      "_comment_job": "Pobiera nieprzeczytane wpisy z FreshRSS, dopasowuje do rss-keywords.txt, zapisuje trafienia do kolejki. no_agent: czyste filtrowanie, zero tokenow.",
+      "schedule": "*/30 * * * *",
+      "no_agent": true,
+      "command": "~/.hermes/scripts/rss/rss-watchdog.py",
+      "env": {
+        "FRESHRSS_HOST": "freshrss.local"
+      },
+      "timeout_seconds": 90
+    },
+    {
+      "name": "rss-digest",
+      "_comment_job": "Generuje czytelne podsumowanie kolejki RSS po polsku i zapisuje je do pliku wiadomosci. Uruchamiany tylko gdy kolejka nie jest pusta - jesli brak trafien, ten krok pomija generowanie i nie kosztuje tokenow.",
+      "schedule": "35 */2 * * *",
+      "no_agent": false,
+      "model": "deepseek/deepseek-v4-flash",
+      "provider": "openrouter",
+      "run_if_queue_nonempty": "~/.hermes/state/rss-queue.json",
+      "agent_instructions": "Przeczytaj ~/.hermes/state/rss-queue.json, napisz zwiezle podsumowanie po polsku (bez emoji, bez pauzy dlugiej) i zapisz je do ~/.hermes/state/rss-digest-message.txt.",
+      "timeout_seconds": 300
+    },
+    {
+      "name": "rss-digest-send",
+      "_comment_job": "Dostarcza gotowy plik wiadomosci na Telegram i czysci go. no_agent, zero tokenow - pusty/brakujacy plik = cisza.",
+      "schedule": "40 */2 * * *",
+      "no_agent": true,
+      "command": "~/.hermes/scripts/rss/rss-digest-send.sh",
+      "on_output": "send_telegram",
+      "timeout_seconds": 30
+    },
+
+    {
+      "_comment": "--- PIPELINE 3: PRAWO (watchdog aktow prawnych) ---",
+
+      "name": "prawo-watchdog",
+      "_comment_job": "Sprawdza Dziennik Ustaw i Monitor Polski (api.sejm.gov.pl) pod katem nowych aktow pasujacych do prawo-keywords.txt. Pobiera PDF-y do vaulta, wysyla do Paperless-ngx, wykrywa akty uchylajace starsze przepisy. no_agent: cala logika jest deterministyczna.",
+      "schedule": "0 6 * * *",
+      "no_agent": true,
+      "command": "~/.hermes/scripts/prawo/prawo-watchdog.py",
+      "timeout_seconds": 180
+    },
+    {
+      "name": "prawo-digest",
+      "_comment_job": "Tworzy notatke w Obsidian vault (Prawo/YYYY-MM-DD-digest.md) na podstawie kolejki nowych aktow i zapisuje podsumowanie do wyslania. Uruchamiany tylko gdy kolejka nie jest pusta.",
+      "schedule": "15 6 * * *",
+      "no_agent": false,
+      "model": "deepseek/deepseek-v4-flash",
+      "provider": "openrouter",
+      "run_if_queue_nonempty": "~/.hermes/state/prawo-queue.json",
+      "agent_instructions": "Przeczytaj ~/.hermes/state/prawo-queue.json, utworz notatke w vault wg szablonu 'legal digest' z skills/knowledge (Prawo/YYYY-MM-DD-digest.md) i zapisz krotkie podsumowanie po polsku do ~/.hermes/state/prawo-digest-message.txt.",
+      "timeout_seconds": 300
+    },
+    {
+      "name": "prawo-digest-send",
+      "_comment_job": "Dostarcza gotowy plik wiadomosci na Telegram i czysci go. no_agent, zero tokenow.",
+      "schedule": "20 6 * * *",
+      "no_agent": true,
+      "command": "~/.hermes/scripts/prawo/prawo-digest-send.sh",
+      "on_output": "send_telegram",
+      "timeout_seconds": 30
+    }
+  ]
+}
