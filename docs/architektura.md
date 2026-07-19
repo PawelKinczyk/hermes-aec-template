@@ -1,164 +1,166 @@
 # Architektura
 
-Opis architektury Hermes Agent w konfiguracji z tego szablonu: skladniki systemu, wzorzec pipeline'ow cronowych oraz dzialanie skilli i skryptow.
+Opis architektury Hermes Agent w konfiguracji z tego szablonu: składniki systemu, wzorzec pipeline'ów cronowych oraz działanie skilli i skryptów.
 
-## Przeglad ogolny
+## Przegląd ogólny
 
-Hermes sklada sie z trzech warstw, ktore wspolpracuja ze soba:
+Hermes składa się z trzech warstw, które współpracują ze sobą:
 
 ```
                     ┌─────────────────────────┐
                     │        Telegram          │
-                    │  (kanal wejscia/wyjscia) │
+                    │  (kanał wejścia/wyjścia) │
                     └────────────┬─────────────┘
                                  │
                                  ▼
 ┌───────────────────────────────────────────────────────────┐
 │                      Hermes Agent (gateway)                │
-│  - odbiera wiadomosci z Telegrama                           │
+│  - odbiera wiadomości z Telegrama                           │
 │  - wybiera model (OpenRouter: DeepSeek Flash/Pro, Claude...) │
 │  - dobiera i wykonuje skille (skills/)                      │
-│  - ma dostep do narzedzi: pliki, przegladarka, terminal      │
+│  - ma dostęp do narzędzi: pliki, przeglądarka, terminal      │
 └───────────────┬───────────────────────────┬─────────────────┘
                 │                           │
                 ▼                           ▼
       ┌──────────────────┐        ┌────────────────────┐
-      │   Cron pipeline   │        │   Narzedzia/tools    │
+      │   Cron pipeline   │        │   Narzędzia/tools    │
       │  (watchdog->digest │        │  scripts/ (no_agent) │
       │   ->send, co N min)│        │  agent-browser, gh,  │
       └─────────┬──────────┘        │  Obsidian vault I/O   │
                 │                   └──────────┬─────────────┘
                 ▼                              │
       ┌──────────────────┐                     │
-      │  Zewnetrzne API    │◄────────────────────┘
+      │  Zewnętrzne API    │◄────────────────────┘
       │  Sejm, FreshRSS,   │
       │  GitHub, Toggl,    │
       │  Paperless-ngx     │
       └──────────────────┘
 ```
 
-- **Gateway** - proces Hermesa nasluchujacy na wiadomosci z Telegrama (i innych skonfigurowanych kanalow) oraz uruchamiajacy zaplanowane cronjoby. To on decyduje, ktory model wywolac i ktory skill zastosowac do danego zadania (patrz skill `model-routing`).
-- **Cron pipeline** - wewnetrzny scheduler Hermesa, ktory uruchamia zdefiniowane zadania (`cron/jobs-example.json`) w regularnych odstepach czasu, niezaleznie od tego, czy uzytkownik akurat pisze na Telegramie.
-- **Tools** - zestaw narzedzi dostepnych agentowi: odczyt/zapis plikow (w tym Obsidian vault), wykonywanie polecen powloki, sterowanie przegladarka (`agent-browser`), wywolania API (GitHub CLI `gh`, REST API roznych serwisow).
+- **Gateway** — proces Hermesa nasłuchujący na wiadomości z Telegrama (i innych skonfigurowanych kanałów) oraz uruchamiający zaplanowane cronjoby. To on decyduje, który model wywołać i który skill zastosować do danego zadania (patrz skill `model-routing`).
+- **Cron pipeline** — wewnętrzny scheduler Hermesa, który uruchamia zdefiniowane zadania (`cron/jobs-example.json`) w regularnych odstępach czasu, niezależnie od tego, czy użytkownik akurat pisze na Telegramie.
+- **Tools** — zestaw narzędzi dostępnych agentowi: odczyt/zapis plików (w tym Obsidian vault), wykonywanie poleceń powłoki, sterowanie przeglądarką (`agent-browser`), wywołania API (GitHub CLI `gh`, REST API różnych serwisów).
 
 ## Wzorzec pipeline'u: watchdog -> digest -> send
 
-Wszystkie trzy monitorujace pipeline'y w tym szablonie (Sokrates, RSS, Prawo) uzywaja tego samego trojstopniowego wzorca, zaprojektowanego tak, aby minimalizowac koszt tokenow LLM:
+Wszystkie trzy monitorujące pipeline'y w tym szablonie (Sokrates, RSS, Prawo) używają tego samego trójstopniowego wzorca, zaprojektowanego tak, aby minimalizować koszt tokenów LLM:
 
 ```
-[1] WATCHDOG (no_agent, zero tokenow)
-     |  skrypt (Python/Bash) odpytuje zrodlo danych,
-     |  filtruje po sfowach kluczowych/regule,
+[1] WATCHDOG (no_agent, zero tokenów)
+     |  skrypt (Python/Bash) odpytuje źródło danych,
+     |  filtruje po słowach kluczowych/regule,
      |  zapisuje trafienia do kolejki (state/*.json)
      v
-[2] DIGEST (agent, uzywa LLM)
-     |  agent czyta kolejke, generuje czytelne podsumowanie
-     |  po polsku, zapisuje je do pliku wiadomosci
-     |  (state/*-message.txt) - i tylko wtedy, gdy sa trafienia
+[2] DIGEST (agent, używa LLM)
+     |  agent czyta kolejkę, generuje czytelne podsumowanie
+     |  po polsku, zapisuje je do pliku wiadomości
+     |  (state/*-message.txt) - i tylko wtedy, gdy są trafienia
      v
-[3] SEND (no_agent, zero tokenow)
-     |  skrypt odczytuje plik wiadomosci, wypisuje go na stdout
-     |  (Hermes dostarcza stdout na Telegram), czysci plik
+[3] SEND (no_agent, zero tokenów)
+     |  skrypt odczytuje plik wiadomości, wypisuje go na stdout
+     |  (Hermes dostarcza stdout na Telegram), czyści plik
      v
-   Telegram (uzytkownik)
+   Telegram (użytkownik)
 ```
 
 Kluczowe zasady tego wzorca:
 
-- **Watchdog nigdy nie uzywa LLM.** To zwykly skrypt, ktory pobiera dane ze zrodla (API, RSS, GitHub), filtruje je deterministycznie (lista slow kluczowych, znaczniki "juz obsluzone") i zapisuje wynik do pliku stanu. Koszt: zero tokenow, niezaleznie od czestotliwosci uruchamiania.
-- **Digest korzysta z LLM tylko wtedy, gdy jest cokolwiek do podsumowania.** Jesli kolejka jest pusta, krok digestu nie generuje kosztu (lub jest pomijany w calosci).
-- **Send jest zawsze `no_agent`.** To tylko dostarczenie gotowego tekstu - nie ma powodu placic za model do przepisania pliku na stdout.
-- **Cisza jako domyslny stan.** Kazdy watchdog konczy sie kodem wyjscia 0 i pustym stdout, gdy nie ma nic nowego - Hermes nie wysyla wtedy zadnej wiadomosci. Uzytkownik dostaje powiadomienie tylko wtedy, gdy naprawde jest cos nowego.
-- **Stan trwaly w plikach JSON.** Kazdy watchdog pamieta, co juz widzial (`*-seen.json`, znaczniki czasu, ID przetworzonych elementow), zeby nigdy nie przetwarzac tego samego elementu dwa razy i nigdy nic nie zgubic przy bledzie sieciowym (kod wyjscia != 0 = stan NIE jest modyfikowany).
+- **Watchdog nigdy nie używa LLM.** To zwykły skrypt, który pobiera dane ze źródła (API, RSS, GitHub), filtruje je deterministycznie (lista słów kluczowych, znaczniki „już obsłużone”) i zapisuje wynik do pliku stanu. Koszt: zero tokenów, niezależnie od częstotliwości uruchamiania.
+- **Digest korzysta z LLM tylko wtedy, gdy jest cokolwiek do podsumowania.** Jeśli kolejka jest pusta, krok digestu nie generuje kosztu (lub jest pomijany w całości).
+- **Send jest zawsze `no_agent`.** To tylko dostarczenie gotowego tekstu — nie ma powodu płacić za model do przepisania pliku na stdout.
+- **Cisza jako domyślny stan.** Każdy watchdog kończy się kodem wyjścia 0 i pustym stdout, gdy nie ma nic nowego — Hermes nie wysyła wtedy żadnej wiadomości. Użytkownik dostaje powiadomienie tylko wtedy, gdy naprawdę jest coś nowego.
+- **Stan trwały w plikach JSON.** Każdy watchdog pamięta, co już widział (`*-seen.json`, znaczniki czasu, ID przetworzonych elementów), żeby nigdy nie przetwarzać tego samego elementu dwa razy i nigdy nic nie zgubić przy błędzie sieciowym (kod wyjścia != 0 = stan NIE jest modyfikowany).
 
-## Jak dzialaja skille
+## Jak działają skille
 
-Skille (`skills/*/SKILL.md`) to pliki markdown z metadanymi (nazwa, opis, wersja) i procedura w jezyku naturalnym. Hermes nie wywoluje ich jak funkcji z jawnym API - sam decyduje, ktory skill pasuje do biezacego zadania na podstawie pola `description` w naglowku (frontmatter YAML) oraz kontekstu rozmowy.
+Skille (`skills/*/SKILL.md`) to pliki markdown z metadanymi (nazwa, opis, wersja) i procedurą w języku naturalnym. Hermes nie wywołuje ich jak funkcji z jawnym API — sam decyduje, który skill pasuje do bieżącego zadania na podstawie pola `description` w nagłówku (frontmatter YAML) oraz kontekstu rozmowy.
 
-Typowa zawartosc skilla:
-- **Kiedy uzyc** (czasem explicite "tylko na wyrazne polecenie", np. `doc-pipeline`).
-- **Procedura krok po kroku** - w jakiej kolejnosci wykonac dzialania, jakich narzedzi uzyc.
-- **Twarde ograniczenia** - czego nigdy nie robic (np. `shopping-auchan`: nigdy nie klikaj "Dodaj do koszyka", bo to wyzwala blokade WAF).
-- **Format odpowiedzi** - jak i w jakim jezyku raportowac wynik uzytkownikowi.
+Typowa zawartość skilla:
+- **Kiedy użyć** (czasem explicite „tylko na wyraźne polecenie”, np. `doc-pipeline`).
+- **Procedura krok po kroku** — w jakiej kolejności wykonać działania, jakich narzędzi użyć.
+- **Twarde ograniczenia** — czego nigdy nie robić (np. `shopping-auchan`: nigdy nie klikaj „Dodaj do koszyka”, bo to wyzwala blokadę WAF).
+- **Format odpowiedzi** — jak i w jakim języku raportować wynik użytkownikowi.
 
-Skille moga odwolywac sie do siebie nawzajem (`related_skills` w metadanych) i do skryptow w `scripts/` (wywolywanych przez agenta poprzez terminal).
+Skille mogą odwoływać się do siebie nawzajem (`related_skills` w metadanych) i do skryptów w `scripts/` (wywoływanych przez agenta poprzez terminal).
 
-## Jak integruja sie skrypty
+## Jak integrują się skrypty
 
-Skrypty w `scripts/` dziela sie na dwie role:
+Skrypty w `scripts/` dzielą się na dwie role:
 
-1. **Wywolywane przez cronjoby** (`no_agent`) - watchdogi i kroki "send" opisane wyzej. Uruchamiane bezposrednio przez scheduler Hermesa, bez udzialu modelu jezykowego.
-2. **Wywolywane przez agenta w trakcie wykonywania skilla** - np. `auchan-login.sh` i `auchan-search-add.sh` sa uruchamiane przez agenta krok po kroku podczas realizacji skilla `shopping-auchan`, poniewaz wymagaja logiki warunkowej i interpretacji wynikow (ktorych zwykly skrypt nie podejmie sam).
+1. **Wywoływane przez cronjoby** (`no_agent`) — watchdogi i kroki „send” opisane wyżej. Uruchamiane bezpośrednio przez scheduler Hermesa, bez udziału modelu językowego.
+2. **Wywoływane przez agenta w trakcie wykonywania skilla** — np. `auchan-login.sh` i `auchan-search-add.sh` są uruchamiane przez agenta krok po kroku podczas realizacji skilla `shopping-auchan`, ponieważ wymagają logiki warunkowej i interpretacji wyników (których zwykły skrypt nie podejmie sam).
 
-Kazdy skrypt komunikuje wynik przez konwencje stdout/kod wyjscia opisana w komentarzu na poczatku pliku (np. `ADDED: <nazwa>` / `NOT_FOUND: <query>` / `ERROR: <szczegoly>`), dzieki czemu zarowno cron, jak i agent moga jednoznacznie zinterpretowac rezultat bez zgadywania.
+Każdy skrypt komunikuje wynik przez konwencję stdout/kod wyjścia opisaną w komentarzu na początku pliku (np. `ADDED: <nazwa>` / `NOT_FOUND: <query>` / `ERROR: <szczegoly>`), dzięki czemu zarówno cron, jak i agent mogą jednoznacznie zinterpretować rezultat bez zgadywania.
 
-## Trzy pipeline'y monitorujace
+## Trzy pipeline'y monitorujące
 
 ### 1. Sokrates (watchdog GitHuba)
 
-Monitoruje wskazane repozytoria GitHub pod katem nowych wzmianek `@sokrates` w issue i komentarzach.
+Monitoruje wskazane repozytoria GitHub pod kątem nowych wzmianek `@sokrates` w issue i komentarzach.
 
 ```
-sokrates-watchdog.sh (co godzine)
+sokrates-watchdog.sh (co godzinę)
   -> gh api (pobiera nowe issue/komentarze od ostatniego sprawdzenia)
-  -> sokrates-filter.py (filtruje wzmianki, pomija juz oznaczone jako zrobione,
+  -> sokrates-filter.py (filtruje wzmianki, pomija już oznaczone jako zrobione,
                           zapisuje zadania do kolejki dla Job 2)
-  -> stdout niepusty = Hermes wysyla powiadomienie na Telegram
+  -> stdout niepusty = Hermes wysyła powiadomienie na Telegram
 
-sokrates-executor.sh (co godzine, cisza nocna 23:00-08:00)
-  -> odczytuje kolejke zadan i przekazuje agentowi do realizacji
+sokrates-executor.sh (co godzinę, cisza nocna 23:00-08:00)
+  -> odczytuje kolejkę zadań i przekazuje agentowi do realizacji
   -> po wykonaniu: sokrates-done.sh oznacza komentarz jako
-     "✅ Zrobione przez Sokratesa" (mechanizm anty-petli - watchdog
+     "✅ Zrobione przez Sokratesa" (mechanizm anty-pętli - watchdog
      pomija komentarze z tym znacznikiem)
 ```
 
-To jedyny z trzech pipeline'ow, ktory ma dwa niezalezne zadania cron (watchdog powiadamiajacy + executor dzialajacy autonomicznie) plus mechanizm zapobiegajacy nieskonczonej petli powiadomien.
+To jedyny z trzech pipeline'ów, który ma dwa niezależne zadania cron (watchdog powiadamiający + executor działający autonomicznie) plus mechanizm zapobiegający nieskończonej pętli powiadomień.
 
 ### 2. RSS (watchdog FreshRSS)
 
-Monitoruje nieprzeczytane wpisy w lokalnej instancji FreshRSS pod katem slow kluczowych.
+Monitoruje nieprzeczytane wpisy w lokalnej instancji FreshRSS pod kątem słów kluczowych.
 
 ```
 rss-watchdog.py (co N minut)
-  -> loguje sie do FreshRSS (Google Reader-compatible API)
+  -> loguje się do FreshRSS (Google Reader-compatible API)
   -> pobiera nieprzeczytane wpisy, dopasowuje do rss-keywords.txt
   -> trafienia -> kolejka (rss-queue.json)
   -> wszystkie pobrane wpisy oznacza jako przeczytane (trafienie czy nie)
 
-[agent digest step] czyta kolejke -> generuje podsumowanie po polsku
+[agent digest step] czyta kolejkę -> generuje podsumowanie po polsku
                       -> zapisuje do rss-digest-message.txt
 
 rss-digest-send.sh (no_agent)
-  -> wypisuje tresc pliku wiadomosci na stdout, czysci plik
+  -> wypisuje treść pliku wiadomości na stdout, czyści plik
 ```
 
-### 3. Prawo (watchdog aktow prawnych)
+### 3. Prawo (watchdog aktów prawnych)
 
-Monitoruje Dziennik Ustaw i Monitor Polski przez oficjalne API `api.sejm.gov.pl` (ELI) pod katem aktow zwiazanych ze slowami kluczowymi z branzy budowlanej/HVAC.
+Monitoruje Dziennik Ustaw i Monitor Polski przez oficjalne API `api.sejm.gov.pl` (ELI) pod kątem aktów związanych ze słowami kluczowymi z branży budowlanej/HVAC.
 
 ```
 prawo-watchdog.py (raz dziennie)
-  -> pobiera liste aktow DU/MP dla biezacego roku
-  -> dla nowych pozycji: pobiera szczegoly, dopasowuje slowa kluczowe
-  -> trafienia: pobiera PDF do vaulta (Prawo/PDF/), wysyla do Paperless-ngx
+  -> pobiera listę aktów DU/MP dla bieżącego roku
+  -> dla nowych pozycji: pobiera szczegóły, dopasowuje słowa kluczowe
+  -> trafienia: pobiera PDF do vaulta (Prawo/PDF/), wysyła do Paperless-ngx
      (REST API, automatyczne tagowanie: ustawa/rozporzadzenie/tekst-jednolity)
-  -> wykrywa akty uchylajace starsze przepisy -> usuwa nieaktualny PDF
+  -> wykrywa akty uchylające starsze przepisy -> usuwa nieaktualny PDF
      z vaulta, oznacza dokument w Paperless jako "zastapiony"
   -> trafienia -> kolejka (prawo-queue.json)
 
-[agent digest step] czyta kolejke -> tworzy notatke w vault
+[agent digest step] czyta kolejkę -> tworzy notatkę w vault
                       (Prawo/YYYY-MM-DD-digest.md) -> zapisuje
                       podsumowanie do prawo-digest-message.txt
 
 prawo-digest-send.sh (no_agent)
-  -> wypisuje tresc pliku wiadomosci na stdout, czysci plik
+  -> wypisuje treść pliku wiadomości na stdout, czyści plik
 ```
 
-Ten pipeline jako jedyny dual-writeuje - PDF trafia zarowno do Obsidian vault, jak i do archiwum Paperless-ngx (patrz `docs/workflow.md` po rozroznienie miedzy tymi dwoma systemami).
+Ten pipeline jako jedyny dual-writeuje — PDF trafia zarówno do Obsidian vault, jak i do archiwum Paperless-ngx (patrz `docs/workflow.md` po rozróżnienie między tymi dwoma systemami).
+
+Uwaga: nazwy tagów Paperless (`ustawa`, `rozporzadzenie`, `tekst-jednolity`, `zastapiony`) celowo nie zawierają polskich znaków — to literalne wartości używane przez `scripts/prawo/prawo-watchdog.py`.
 
 ## Podsumowanie zasad projektowych
 
-- Kazde zadanie deterministyczne -> skrypt, nigdy LLM.
-- Kazdy cronjob domyslnie projektowany jako `no_agent`; wariant z agentem wymaga uzasadnienia.
-- Cisza jest poprawnym stanem koncowym - powiadomienie wysylane jest tylko, gdy jest cos realnie nowego.
-- Stan zawsze trwaly w plikach JSON w `~/.hermes/state/`, nigdy tylko w pamieci procesu.
+- Każde zadanie deterministyczne -> skrypt, nigdy LLM.
+- Każdy cronjob domyślnie projektowany jako `no_agent`; wariant z agentem wymaga uzasadnienia.
+- Cisza jest poprawnym stanem końcowym — powiadomienie wysyłane jest tylko, gdy jest coś realnie nowego.
+- Stan zawsze trwały w plikach JSON w `~/.hermes/state/`, nigdy tylko w pamięci procesu.
