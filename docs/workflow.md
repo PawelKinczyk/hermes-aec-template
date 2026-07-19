@@ -1,71 +1,71 @@
-# Workflow - co system potrafi i jak z niego korzystac
+# Workflow — co system potrafi i jak z niego korzystać
 
-Praktyczny przewodnik po mozliwosciach tego szablonu Hermes Agent: co mozna zlecic agentowi z poziomu Telegrama, jak dziala automatyczne monitorowanie oraz jakie narzedzia sa dostepne.
+Praktyczny przewodnik po możliwościach tego szablonu Hermes Agent: co można zlecić agentowi z poziomu Telegrama, jak działa automatyczne monitorowanie oraz jakie narzędzia są dostępne.
 
 ## Co system potrafi
 
 | Obszar | Opis | Skill / skrypt |
 |---|---|---|
-| Code review i implementacja | Delegowanie zadan programistycznych do Claude Code CLI (przegladanie diffow, implementacja issue, poprawki po review) | `skills/claude-code` |
-| Konfiguracja providerow coding CLI | Podmiana providera modelu dla Claude Code/Codex/OpenCode (np. na tanszy model przez API kompatybilne z Anthropic) | `skills/coding-cli-provider-config` |
-| Zapisywanie wiedzy | Zapisywanie stron internetowych, dokumentow i notatek do Obsidian vault z automatyczna klasyfikacja folderu i wyszukiwaniem duplikatow | `skills/knowledge`, `skills/doc-pipeline` |
-| Zakupy | Prowadzenie listy zakupow w vault oraz automatyczne przygotowanie listy zamowienia na zakupy.auchan.pl | `skills/shopping`, `skills/shopping-auchan`, `scripts/auchan/` |
-| Monitoring RSS | Automatyczne sledzenie kanalow RSS (FreshRSS) pod katem slow kluczowych z branzy | `scripts/rss/` |
-| Monitoring prawa budowlanego | Automatyczne sledzenie Dziennika Ustaw i Monitora Polskiego pod katem aktow istotnych dla branzy AEC | `scripts/prawo/` |
-| Sledzenie czasu pracy | Start/stop timera, raporty dzienne/tygodniowe przez Toggl Track API | `skills/toggl-track` |
-| Dobor modelu | Automatyczny wybor modelu/narzedzia adekwatnego do zlozonosci zadania (koszt vs jakosc) | `skills/model-routing` |
-| Reakcja na wzmianki GitHub | Watchdog + executor obslugujacy wzmianki `@sokrates` w issue/komentarzach na sledzonych repozytoriach | `scripts/watchdog/` |
+| Code review i implementacja | Delegowanie zadań programistycznych do Claude Code CLI (przeglądanie diffów, implementacja issue, poprawki po review) | `skills/claude-code` |
+| Konfiguracja providerów coding CLI | Podmiana providera modelu dla Claude Code/Codex/OpenCode (np. na tańszy model przez API kompatybilne z Anthropic) | `skills/coding-cli-provider-config` |
+| Zapisywanie wiedzy | Zapisywanie stron internetowych, dokumentów i notatek do Obsidian vault z automatyczną klasyfikacją folderu i wyszukiwaniem duplikatów | `skills/knowledge`, `skills/doc-pipeline` |
+| Zakupy | Prowadzenie listy zakupów w vault oraz automatyczne przygotowanie listy zamówienia na zakupy.auchan.pl | `skills/shopping`, `skills/shopping-auchan`, `scripts/auchan/` |
+| Monitoring RSS | Automatyczne śledzenie kanałów RSS (FreshRSS) pod kątem słów kluczowych z branży | `scripts/rss/` |
+| Monitoring prawa budowlanego | Automatyczne śledzenie Dziennika Ustaw i Monitora Polskiego pod kątem aktów istotnych dla branży AEC | `scripts/prawo/` |
+| Śledzenie czasu pracy | Start/stop timera, raporty dzienne/tygodniowe przez Toggl Track API | `skills/toggl-track` |
+| Dobór modelu | Automatyczny wybór modelu/narzędzia adekwatnego do złożoności zadania (koszt vs jakość) | `skills/model-routing` |
+| Reakcja na wzmianki GitHub | Watchdog + executor obsługujący wzmianki `@sokrates` w issue/komentarzach na śledzonych repozytoriach | `scripts/watchdog/` |
 
-## Jak uzywac wzmianek @sokrates
+## Jak używać wzmianek @sokrates
 
-Pipeline Sokrates pozwala zlecac Hermesowi zadania bezposrednio z poziomu GitHuba - bez otwierania Telegrama - poprzez wspomnienie `@sokrates` w tresci issue lub komentarza w jednym ze sledzonych repozytoriow.
+Pipeline Sokrates pozwala zlecać Hermesowi zadania bezpośrednio z poziomu GitHuba — bez otwierania Telegrama — poprzez wspomnienie `@sokrates` w treści issue lub komentarza w jednym ze śledzonych repozytoriów.
 
-1. **W nowym issue** - wpisz w tytule lub tresci `@sokrates`, opisujac zadanie (np. "@sokrates zaimplementuj walidacje formularza w src/form.ts").
-2. **W komentarzu do istniejacego issue** - dopisz `@sokrates` wraz z prosba/pytaniem.
-3. Watchdog (uruchamiany co godzine) wykrywa nowa wzmianke i:
-   - wysyla powiadomienie na Telegram z tresci issue/komentarza i linkiem,
-   - zapisuje zadanie do wewnetrznej kolejki.
-4. Executor (rowniez co godzine, z cisza nocna 23:00-08:00) odczytuje kolejke i przekazuje zadanie agentowi do samodzielnej realizacji - mozesz wiec po prostu poczekac, nie trzeba nic dodatkowo klikac na Telegramie.
-5. Po zrealizowaniu zadania agent edytuje oryginalny komentarz/issue, zamieniajac `@sokrates` na `✅ Zrobione przez Sokratesa` - to jednoczesnie potwierdzenie wykonania i zabezpieczenie przed ponownym przetworzeniem tej samej wzmianki (watchdog pomija komentarze z tym znacznikiem).
+1. **W nowym issue** — wpisz w tytule lub treści `@sokrates`, opisując zadanie (np. „@sokrates zaimplementuj walidację formularza w src/form.ts”).
+2. **W komentarzu do istniejącego issue** — dopisz `@sokrates` wraz z prośbą/pytaniem.
+3. Watchdog (uruchamiany co godzinę) wykrywa nową wzmiankę i:
+   - wysyła powiadomienie na Telegram z treścią issue/komentarza i linkiem,
+   - zapisuje zadanie do wewnętrznej kolejki.
+4. Executor (również co godzinę, z ciszą nocną 23:00-08:00) odczytuje kolejkę i przekazuje zadanie agentowi do samodzielnej realizacji — możesz więc po prostu poczekać, nie trzeba nic dodatkowo klikać na Telegramie.
+5. Po zrealizowaniu zadania agent edytuje oryginalny komentarz/issue, zamieniając `@sokrates` na `✅ Zrobione przez Sokratesa` — to jednocześnie potwierdzenie wykonania i zabezpieczenie przed ponownym przetworzeniem tej samej wzmianki (watchdog pomija komentarze z tym znacznikiem).
 
-Wskazowka: jedna wzmianka = jedno zadanie. Dla wielu niezaleznych zadan lepiej utworzyc osobne issue lub komentarze, niz laczyc je w jednej wiadomosci.
+Wskazówka: jedna wzmianka = jedno zadanie. Dla wielu niezależnych zadań lepiej utworzyć osobne issue lub komentarze, niż łączyć je w jednej wiadomości.
 
-## Wzorce cronjobow
+## Wzorce cronjobów
 
-Cronjoby w Hermesie definiuje sie jako obiekty JSON (patrz `cron/jobs-example.json`) z polami takimi jak `name`, `schedule` (wyrazenie cron), `command`/`script`, `no_agent` oraz opcjonalnie `model`/`provider`.
+Cronjoby w Hermesie definiuje się jako obiekty JSON (patrz `cron/jobs-example.json`) z polami takimi jak `name`, `schedule` (wyrażenie cron), `command`/`script`, `no_agent` oraz opcjonalnie `model`/`provider`.
 
-Dwa podstawowe typy zadan:
+Dwa podstawowe typy zadań:
 
-- **`no_agent: true`** - zadanie uruchamia skrypt bezposrednio, bez udzialu modelu jezykowego. Domyslny wybor dla kazdego nowego cronjoba - jesli zadanie da sie opisac jako deterministyczna operacje (pobierz, przefiltruj, zapisz, wyslij), nie potrzebuje LLM.
-- **`no_agent: false` (lub pominiete)** - zadanie przekazywane jest agentowi wraz z kontekstem (np. zawartoscia kolejki) i ma za zadanie wygenerowac tresc (podsumowanie, notatke, odpowiedz). Uzywane tylko na etapie "digest" w kazdym z trzech pipeline'ow.
+- **`no_agent: true`** — zadanie uruchamia skrypt bezpośrednio, bez udziału modelu językowego. Domyślny wybór dla każdego nowego cronjoba — jeśli zadanie da się opisać jako deterministyczną operację (pobierz, przefiltruj, zapisz, wyślij), nie potrzebuje LLM.
+- **`no_agent: false` (lub pominięte)** — zadanie przekazywane jest agentowi wraz z kontekstem (np. zawartością kolejki) i ma za zadanie wygenerować treść (podsumowanie, notatkę, odpowiedź). Używane tylko na etapie „digest” w każdym z trzech pipeline'ów.
 
-Uwaga dotyczaca modelu w cronjobach: jesli zadanie pomija pola `model`/`provider`, Hermes "zamraza" (snapshotuje) domyslny model globalny w momencie utworzenia zadania. Jesli pozniej zmienisz domyslny model globalnie, taki cronjob **nie** przelaczy sie automatycznie - zamiast tego zawiedzie w sposob bezpieczny (nie wykona przebiegu) i wysle alert z prosba o jawne przypiecie modelu/providera. Dlatego zalecane jest jawne ustawienie `model`/`provider` w kazdym cronjobie typu digest, zamiast polegania na wartosci domyslnej.
+Uwaga dotycząca modelu w cronjobach: jeśli zadanie pomija pola `model`/`provider`, Hermes „zamraża” (snapshotuje) domyślny model globalny w momencie utworzenia zadania. Jeśli później zmienisz domyślny model globalnie, taki cronjob **nie** przełączy się automatycznie — zamiast tego zawiedzie w sposób bezpieczny (nie wykona przebiegu) i wyśle alert z prośbą o jawne przypięcie modelu/providera. Dlatego zalecane jest jawne ustawienie `model`/`provider` w każdym cronjobie typu digest, zamiast polegania na wartości domyślnej.
 
-Wzorzec trzech krokow (watchdog -> digest -> send) opisany jest szczegolowo w [docs/architektura.md](architektura.md) - w praktyce oznacza to zazwyczaj 2-3 osobne wpisy cron per pipeline, uruchamiane jeden po drugim (np. co godzine watchdog, zaraz po nim digest, zaraz po nim send), tak aby kolejka zapisana przez watchdog zdazyla zostac odczytana przez kolejny krok.
+Wzorzec trzech kroków (watchdog -> digest -> send) opisany jest szczegółowo w [docs/architektura.md](architektura.md) — w praktyce oznacza to zazwyczaj 2-3 osobne wpisy cron per pipeline, uruchamiane jeden po drugim (np. co godzinę watchdog, zaraz po nim digest, zaraz po nim send), tak aby kolejka zapisana przez watchdog zdążyła zostać odczytana przez kolejny krok.
 
-## Dostepne narzedzia i ich przeznaczenie
+## Dostępne narzędzia i ich przeznaczenie
 
-| Narzedzie | Przeznaczenie |
+| Narzędzie | Przeznaczenie |
 |---|---|
-| Skrypty w `scripts/` | Deterministyczne operacje bez LLM: pobieranie danych z API, filtrowanie, logowanie do serwisow, wysylka wiadomosci |
-| `agent-browser` (CLI) | Sterowanie przegladarka z poziomu terminala - logowanie do serwisow z chronionymi formularzami (np. Auchan), klikanie po referencjach ze snapshotu accessibility tree, gdy standardowe selektory CSS/tekst zawodza |
+| Skrypty w `scripts/` | Deterministyczne operacje bez LLM: pobieranie danych z API, filtrowanie, logowanie do serwisów, wysyłka wiadomości |
+| `agent-browser` (CLI) | Sterowanie przeglądarką z poziomu terminala — logowanie do serwisów z chronionymi formularzami (np. Auchan), klikanie po referencjach ze snapshotu accessibility tree, gdy standardowe selektory CSS/tekst zawodzą |
 | `gh` (GitHub CLI) | Odczyt i edycja issue/komentarzy dla pipeline'u Sokrates |
-| Obsidian vault (odczyt/zapis plikow) | Trwale przechowywanie wiedzy: streszczenia stron, digesty prawne, lista zakupow, notatki wlasne uzytkownika |
-| Paperless-ngx (REST API) | Archiwum surowych dokumentow PDF z OCR i pelnotekstowym wyszukiwaniem - rozne przeznaczenie niz vault (patrz ponizej) |
-| Claude Code CLI | Delegowanie zlozonych zadan programistycznych (wieloplikowe zmiany, refaktoryzacje, PR-y) |
+| Obsidian vault (odczyt/zapis plików) | Trwałe przechowywanie wiedzy: streszczenia stron, digesty prawne, lista zakupów, notatki własne użytkownika |
+| Paperless-ngx (REST API) | Archiwum surowych dokumentów PDF z OCR i pełnotekstowym wyszukiwaniem — różne przeznaczenie niż vault (patrz poniżej) |
+| Claude Code CLI | Delegowanie złożonych zadań programistycznych (wieloplikowe zmiany, refaktoryzacje, PR-y) |
 | Toggl Track API | Start/stop timera, raporty czasu pracy |
-| OpenRouter | Routing do modeli jezykowych (domyslnie tanszy model do zadan biezacych, mocniejszy do zadan zlozonych) |
+| OpenRouter | Routing do modeli językowych (domyślnie tańszy model do zadań bieżących, mocniejszy do zadań złożonych) |
 
-### Vault vs. Paperless vs. digest RSS - trzy rozne przeznaczenia
+### Vault vs. Paperless vs. digest RSS — trzy różne przeznaczenia
 
-Latwo pomylic te trzy miejsca przechowywania danych - kazde sluzy innemu celowi:
+Łatwo pomylić te trzy miejsca przechowywania danych — każde służy innemu celowi:
 
-- **Obsidian vault** - wiedza w wersji przetworzonej: streszczenia, notatki, wikilinki do powiazanych tematow. Jedyne surowe pliki, jakie tam trafiaja, to PDF-y aktow prawnych (zeby notatka digestu mogla sie do nich odwolac).
-- **Paperless-ngx** - archiwum surowych dokumentow z OCR i pelnotekstowym wyszukiwaniem. Wlasciwe miejsce, gdy potrzeba "znajdz dokladny dokument/fraze", nigdy do streszczen.
-- **Digest RSS** - z natury efemeryczny: wyslany raz na Telegram, kolejka czyszczona po wyslaniu, nic nie jest zapisywane na trwale (chyba ze uzytkownik jawnie poprosi o zapisanie konkretnego linku do vaulta).
+- **Obsidian vault** — wiedza w wersji przetworzonej: streszczenia, notatki, wikilinki do powiązanych tematów. Jedyne surowe pliki, jakie tam trafiają, to PDF-y aktów prawnych (żeby notatka digestu mogła się do nich odwołać).
+- **Paperless-ngx** — archiwum surowych dokumentów z OCR i pełnotekstowym wyszukiwaniem. Właściwe miejsce, gdy potrzeba „znajdź dokładny dokument/frazę”, nigdy do streszczeń.
+- **Digest RSS** — z natury efemeryczny: wysłany raz na Telegram, kolejka czyszczona po wysłaniu, nic nie jest zapisywane na trwałe (chyba że użytkownik jawnie poprosi o zapisanie konkretnego linku do vaulta).
 
-## Uwagi koncowe
+## Uwagi końcowe
 
-- Wiekszosc odpowiedzi agenta jest po polsku, bez emoji i bez pauzy dlugiej (em-dash) - zgodnie z zasadami w `SOUL.md`.
-- Kazdy nowy cronjob projektuj domyslnie jako `no_agent`; wariant z agentem wymaga uzasadnienia, dlaczego skrypt deterministyczny nie wystarczy.
-- Przed dodaniem nowego pipeline'u monitorujacego rozwaz, czy pasuje do wzorca watchdog -> digest -> send opisanego w architekturze - w wiekszosci przypadkow bedzie pasowal.
+- Większość odpowiedzi agenta jest po polsku, bez emoji i bez pauzy długiej (em-dash) — zgodnie z zasadami w `SOUL.md`.
+- Każdy nowy cronjob projektuj domyślnie jako `no_agent`; wariant z agentem wymaga uzasadnienia, dlaczego skrypt deterministyczny nie wystarczy.
+- Przed dodaniem nowego pipeline'u monitorującego rozważ, czy pasuje do wzorca watchdog -> digest -> send opisanego w architekturze — w większości przypadków będzie pasował.
